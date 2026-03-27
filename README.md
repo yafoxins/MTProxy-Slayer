@@ -1,137 +1,98 @@
-# 🩸 MTProxy Slayer
+# MTProxy + FakeTLS (Anti-DPI Ready)
 
-    ███╗   ███╗████████╗██████╗ ██████╗  ██████╗ ██╗  ██╗██╗   ██╗
-    ████╗ ████║╚══██╔══╝██╔══██╗██╔══██╗██╔═══██╗╚██╗██╔╝╚██╗ ██╔╝
-    ██╔████╔██║   ██║   ██████╔╝██████╔╝██║   ██║ ╚███╔╝  ╚████╔╝ 
-    ██║╚██╔╝██║   ██║   ██╔═══╝ ██╔══██╗██║   ██║ ██╔██╗   ╚██╔╝  
-    ██║ ╚═╝ ██║   ██║   ██║     ██║  ██║╚██████╔╝██╔╝ ██╗   ██║   
-    ╚═╝     ╚═╝   ╚═╝   ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   
+## 🇷🇺 Русская версия
 
-🔥 **MTProxy Slayer --- FakeTLS Anti-DPI Proxy**
+Готовый скрипт для установки Telegram MTProxy с поддержкой FakeTLS.
 
-------------------------------------------------------------------------
+### Возможности
 
-![Linux](https://img.shields.io/badge/Linux-supported-success?logo=linux)
-![FakeTLS](https://img.shields.io/badge/FakeTLS-enabled-purple)
-![MTProxy](https://img.shields.io/badge/MTProxy-official-blue)
-![AutoUpdate](https://img.shields.io/badge/AutoUpdate-4h-green)
-![Status](https://img.shields.io/badge/status-stable-brightgreen)
-![Stars](https://img.shields.io/github/stars/yafoxins/MTProxy-Slayer?style=social)
+-   FakeTLS (ee secret)
+-   Автообновление каждые 4 часа
+-   Исправление kernel.pid_max
+-   Systemd сервис
 
-------------------------------------------------------------------------
-
-## 💀 What is this?
-
-MTProxy Slayer --- это готовый скрипт, который:
-
-✔ ставит MTProxy\
-✔ включает FakeTLS\
-✔ обходит DPI\
-✔ сам обновляется\
-✔ просто работает
-
-------------------------------------------------------------------------
-
-## ⚡ Install
+### Установка
 
 ``` bash
-wget https://raw.githubusercontent.com/yafoxins/MTProxy-Slayer/main/mtproto.sh -O mtproxy.sh
-chmod +x mtproxy.sh
-sudo bash mtproxy.sh
+chmod +x mtproxy-install.sh
+sudo bash mtproxy-install.sh
 ```
 
-------------------------------------------------------------------------
+### FakeTLS
 
-## 🩸 FakeTLS Explained
-
-    Client → TLS handshake → looks like HTTPS
-                 ↓
-            MTProto inside
-                 ↓
-            Telegram servers
-
-👉 DPI думает что это обычный HTTPS\
-👉 На самом деле это Telegram
-
-------------------------------------------------------------------------
-
-## 🔐 Secret Format
+Формат:
 
     ee + SECRET + HEX(domain)
 
-Example:
+Пример:
 
     ee12a47d253fb8dca2814479a60a7446b5766b2e636f6d
 
-------------------------------------------------------------------------
+### Домены
 
-## 🌐 Domains
+-   vk.com
+-   vk.ru
+-   petrovich.ru
+-   yandex.ru
+-   google.com
 
-  Domain         HEX
-  -------------- --------------------------
-  vk.com         766b2e636f6d
-  vk.ru          766b2e7275
-  petrovich.ru   706574726f766963682e7275
+Требования: - TLS 1.3 - Порт 443 - Доступность из РФ
 
-------------------------------------------------------------------------
-
-## ⚙️ Change Domain
+### Проверка
 
 ``` bash
-FAKE_TLS_DOMAIN=yandex.ru sudo bash mtproxy.sh
+systemctl status mtproxy
+journalctl -u mtproxy -n 100 --no-pager
 ```
 
 ------------------------------------------------------------------------
 
-## 🔄 Auto Update
+## 🇬🇧 English Version
 
-Каждые 4 часа:
+Ready-to-use MTProxy installer with FakeTLS support.
 
-``` bash
-wget getProxySecret
-wget getProxyConfig
-systemctl restart mtproxy
-```
+### Features
 
-💡 Это нужно потому что Telegram меняет маршруты
+-   FakeTLS (ee secret)
+-   Auto refresh every 4 hours
+-   kernel.pid_max fix
+-   Systemd service
 
-------------------------------------------------------------------------
-
-## 📊 Stats
+### Install
 
 ``` bash
-curl http://127.0.0.1:8888/stats
+chmod +x mtproxy-install.sh
+sudo bash mtproxy-install.sh
 ```
 
-------------------------------------------------------------------------
+### FakeTLS format
 
-## 🧠 Kernel Fix
+    ee + SECRET + HEX(domain)
 
-    kernel.pid_max = 32768
+### Example
 
-Иначе MTProxy падает 💀
+    ee12a47d253fb8dca2814479a60a7446b5766b2e636f6d
 
-------------------------------------------------------------------------
+### Domains
 
-## 🧪 Troubleshooting
+-   vk.com
+-   vk.ru
+-   petrovich.ru
+-   yandex.ru
+-   google.com
+
+Requirements: - TLS 1.3 support - Port 443 - Accessible from your region
+
+### Check
 
 ``` bash
-journalctl -u mtproxy -n 100
+systemctl status mtproxy
+journalctl -u mtproxy -n 100 --no-pager
 ```
 
 ------------------------------------------------------------------------
 
-## 👑 Author
+## Author
 
-**Yafoxin Dev**\
+Yafoxin Dev\
 https://t.me/yafoxindev
-
-------------------------------------------------------------------------
-
-## ⭐ Star this repo
-
-Если помогло --- поставь ⭐
-
-------------------------------------------------------------------------
-
-🔥 **MTProxy Slayer --- because DPI deserves to die**
