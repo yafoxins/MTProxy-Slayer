@@ -4,557 +4,367 @@
 
 <h1 align="center">MTProxy Slayer</h1>
 <p align="center">
-  <b>Production-ready MTProxy installer with FakeTLS, systemd timer refresh, and Linux compatibility fixes.</b><br/>
-  <sub>Готовый установщик MTProxy с FakeTLS, автообновлением конфигов и фиксом совместимости Linux.</sub>
+  <b>Clean MTProxy + FakeTLS installer with domain quality probing, interactive port selection, systemd refresh and rich operational output.</b><br/>
+  <sub>Аккуратный установщик MTProxy + FakeTLS с проверкой доменов, интерактивным выбором порта, systemd-обновлением и подробным итоговым выводом.</sub>
 </p>
 
 <p align="center">
-  <a href="https://github.com/yafoxins/MTProxy-Slayer/stargazers"><img src="https://img.shields.io/github/stars/yafoxins/MTProxy-Slayer?style=for-the-badge&logo=github&label=Stars" alt="GitHub stars"></a>
-  <a href="https://github.com/yafoxins/MTProxy-Slayer/network/members"><img src="https://img.shields.io/github/forks/yafoxins/MTProxy-Slayer?style=for-the-badge&logo=github&label=Forks" alt="GitHub forks"></a>
-  <a href="https://github.com/yafoxins/MTProxy-Slayer/issues"><img src="https://img.shields.io/github/issues/yafoxins/MTProxy-Slayer?style=for-the-badge&logo=github&label=Issues" alt="GitHub issues"></a>
-  <a href="https://github.com/yafoxins/MTProxy-Slayer/commits/main"><img src="https://img.shields.io/github/last-commit/yafoxins/MTProxy-Slayer?style=for-the-badge&logo=github&label=Updated" alt="Last commit"></a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Linux-supported-0f766e?style=flat-square&logo=linux&logoColor=white" alt="Linux supported">
-  <img src="https://img.shields.io/badge/MTProxy-official%20build-2563eb?style=flat-square" alt="Official MTProxy build">
-  <img src="https://img.shields.io/badge/FakeTLS-enabled-7c3aed?style=flat-square" alt="FakeTLS enabled">
-  <img src="https://img.shields.io/badge/systemd-auto--refresh%204h-16a34a?style=flat-square" alt="systemd timer">
-  <img src="https://img.shields.io/badge/Port-443-e11d48?style=flat-square" alt="Port 443">
-  <img src="https://img.shields.io/badge/Shell-Bash-f59e0b?style=flat-square&logo=gnu-bash&logoColor=white" alt="Shell">
+  <img src="https://img.shields.io/badge/Bash-only-f59e0b?style=flat-square&logo=gnu-bash&logoColor=white" alt="Bash only">
+  <img src="https://img.shields.io/badge/FakeTLS-TLS1.3-7c3aed?style=flat-square" alt="FakeTLS TLS 1.3">
+  <img src="https://img.shields.io/badge/Auto-refresh-4h-16a34a?style=flat-square" alt="Refresh every 4h">
+  <img src="https://img.shields.io/badge/Recommended%20port-443-e11d48?style=flat-square" alt="Recommended port 443">
 </p>
 
 ---
 
-## Table of contents / Содержание
+## Table of contents / Оглавление
 
-- [Why this project? / Зачем проект?](#why-this-project--зачем-проект)
-- [Key features / Что умеет](#key-features--что-умеет)
-- [How FakeTLS works / Как работает FakeTLS](#how-faketls-works--как-работает-faketls)
+- [Overview / Обзор](#overview--обзор)
+- [What is MTProxy and FakeTLS / Что такое MTProxy и FakeTLS](#what-is-mtproxy-and-faketls--что-такое-mtproxy-и-faketls)
+- [How ee secret works / Как работает длинный ee-secret](#how-ee-secret-works--как-работает-длинный-ee-secret)
+- [Why TLS 1.3 and not ping-only / Почему важен TLS-1.3, а ping недостаточен](#why-tls-13-and-not-ping-only--почему-важен-tls-13-а-ping-недостаточен)
 - [Quick start / Быстрый старт](#quick-start--быстрый-старт)
-- [Configuration / Параметры](#configuration--параметры)
-- [FakeTLS domains / Домены FakeTLS](#faketls-domains--домены-faketls)
-- [Auto-refresh / Автообновление](#auto-refresh--автообновление)
-- [Domain check before use / Проверка домена перед использованием](#domain-check-before-use--проверка-домена-перед-использованием)
-- [Service layout / Что создаёт скрипт](#service-layout--что-создаёт-скрипт)
-- [Verification / Проверка](#verification--проверка)
-- [Troubleshooting / Частые проблемы](#troubleshooting--частые-проблемы)
-- [Roadmap](#roadmap)
+- [Installer flow / Как проходит установка](#installer-flow--как-проходит-установка)
+- [Configuration and env overrides / Параметры и env override](#configuration-and-env-overrides--параметры-и-env-override)
+- [Domain auto-selection scoring / Логика auto-select scoring](#domain-auto-selection-scoring--логика-auto-select-scoring)
+- [How to properly test a domain for FakeTLS / Как качественно проверить домен для FakeTLS](#how-to-properly-test-a-domain-for-faketls--как-качественно-проверить-домен-для-faketls)
+- [Files and services / Файлы и сервисы](#files-and-services--файлы-и-сервисы)
+- [Operations / Эксплуатация](#operations--эксплуатация)
+- [Troubleshooting](#troubleshooting)
 - [Author](#author)
 
 ---
 
-## Why this project? / Зачем проект?
+## Overview / Обзор
 
-**EN:**  
-`MTProxy Slayer` is a practical installer for your own Telegram MTProxy server with **FakeTLS**, automatic refresh of Telegram proxy configuration, and a built-in workaround for the well-known `kernel.pid_max` issue that can crash MTProxy on some VPS setups.
+**EN**
 
-**RU:**  
-`MTProxy Slayer` — это практичный установщик собственного Telegram MTProxy-сервера с **FakeTLS**, автоматическим обновлением конфигов Telegram и встроенным обходом проблемы `kernel.pid_max`, из-за которой MTProxy может падать на некоторых VPS.
+`MTProxy-Slayer` installs official MTProxy from source, enables FakeTLS mode, creates `systemd` service + timer refresh every 4 hours, applies `kernel.pid_max=32768` compatibility fix, and writes full proxy metadata into:
 
-> This repository is built around the current installation script used in this project.  
-> Основа README и описания параметров соответствует текущему установочному скрипту проекта.
+- `/opt/mtproxy/mtproxy-info.txt`
+- `/opt/mtproxy/mtproxy-info.env`
 
----
+**RU**
 
-## Key features / Что умеет
+`MTProxy-Slayer` ставит официальный MTProxy из исходников, включает FakeTLS, создает `systemd`-сервис + таймер автообновления каждые 4 часа, применяет фикс `kernel.pid_max=32768` и сохраняет всю информацию о прокси в:
 
-<table>
-  <tr>
-    <td width="33%">
-      <h3>🔐 FakeTLS</h3>
-      <p><b>EN:</b> Uses <code>ee</code> secrets and a real TLS 1.3 domain mask.<br/>
-      <b>RU:</b> Использует <code>ee</code>-секрет и маскировку под реальный TLS 1.3 домен.</p>
-    </td>
-    <td width="33%">
-      <h3>🔄 Auto refresh</h3>
-      <p><b>EN:</b> Refreshes <code>proxy-secret</code> and <code>proxy-multi.conf</code> every 4 hours using <code>systemd</code> timer.<br/>
-      <b>RU:</b> Обновляет <code>proxy-secret</code> и <code>proxy-multi.conf</code> каждые 4 часа через <code>systemd</code> timer.</p>
-    </td>
-    <td width="33%">
-      <h3>🛠 Linux fix</h3>
-      <p><b>EN:</b> Applies a safe <code>kernel.pid_max</code> value for MTProxy compatibility.<br/>
-      <b>RU:</b> Применяет безопасное значение <code>kernel.pid_max</code> для совместимости с MTProxy.</p>
-    </td>
-  </tr>
-</table>
-
-### At a glance / Коротко
-
-- installs the **official MTProxy source** and builds it locally  
-- configures a **systemd service** for the proxy  
-- configures a **systemd timer** for periodic refresh  
-- generates a **FakeTLS connection link** in both `tg://` and `https://t.me/proxy` formats  
-- exposes a local **stats endpoint** on `127.0.0.1:8888` by default  
+- `/opt/mtproxy/mtproxy-info.txt`
+- `/opt/mtproxy/mtproxy-info.env`
 
 ---
 
-## How FakeTLS works / Как работает FakeTLS
+## What is MTProxy and FakeTLS / Что такое MTProxy и FakeTLS
 
-### The short version / Коротко
+**EN**
 
-**EN:** FakeTLS makes MTProxy traffic resemble a normal HTTPS connection. DPI sees a TLS 1.3-looking handshake, while Telegram traffic is carried inside that session format.  
-**RU:** FakeTLS делает трафик MTProxy похожим на обычное HTTPS-соединение. DPI видит handshake, похожий на TLS 1.3, а внутри этого формата проходит Telegram-трафик.
+- **MTProxy** is Telegram’s proxy protocol implementation.
+- **FakeTLS** is MTProxy mode where traffic shape imitates TLS handshake/profile.
+- It is configured by using an `ee` prefixed client secret containing both random secret and target domain in hex.
 
-```mermaid
-flowchart LR
-    A[Telegram client] --> B[FakeTLS handshake]
-    B --> C[DPI sees HTTPS-like traffic]
-    C --> D[MTProxy server]
-    D --> E[Telegram network]
-```
+**RU**
 
-### FakeTLS secret format / Формат секрета
+- **MTProxy** — это прокси-протокол Telegram.
+- **FakeTLS** — режим MTProxy, где трафик имитирует TLS-профиль.
+- Настраивается через `ee`-секрет: внутри есть случайный secret и домен в hex.
 
-```text
-ee + SECRET + HEX(domain)
-```
+---
 
-**Example / Пример**
+## How ee secret works / Как работает длинный ee-secret
+
+Format:
 
 ```text
-ee12a47d253fb8dca2814479a60a7446b5766b2e636f6d
+ee + 16-byte-random-secret-hex + domain-hex
 ```
 
-Breakdown:
+Example:
 
-- `ee` → enables **FakeTLS** mode  
-- `12a47d253fb8dca2814479a60a7446` → random 16-byte secret in hex  
-- `766b2e636f6d` → `vk.com` encoded as hex  
+```text
+ee12a47d253fb8dca2814479a60a7446766b2e636f6d
+```
 
-### FakeTLS vs regular MTProxy / Отличие от обычного MTProxy
+Where:
 
-| Mode | Prefix | Meaning |
-|---|---|---|
-| Regular MTProxy | `dd` | random padding, no TLS camouflage |
-| FakeTLS | `ee` | TLS-like camouflage using a selected domain |
+- `ee` — enables FakeTLS mode
+- `12a47d...` — short secret (16 bytes, hex)
+- `766b2e636f6d` — `vk.com` encoded to hex
 
-### Why the domain matters / Почему домен важен
+---
 
-**EN:** The selected domain is used as a TLS camouflage target. In practice, it should support **TLS 1.3**, respond correctly on port **443**, and be reachable from the client network where you plan to use the proxy.  
-**RU:** Выбранный домен используется как цель маскировки под TLS. На практике он должен поддерживать **TLS 1.3**, корректно работать на порту **443** и быть доступным из той сети, где ты собираешься использовать прокси.
+## Why TLS 1.3 and not ping-only / Почему важен TLS-1.3, а ping недостаточен
 
-> Note: when people casually say “TLS 3”, they almost always mean **TLS 1.3**.  
-> Примечание: когда говорят “TLS 3”, обычно имеют в виду именно **TLS 1.3**.
+**EN**
+
+Ping is only an auxiliary signal. Some domains block ICMP but still work perfectly for HTTPS/TLS. For FakeTLS quality, the critical checks are:
+
+1. DNS resolution
+2. TCP connection to `:443`
+3. Stable TLS 1.3 handshake
+4. Timing quality (`curl` connect + appconnect)
+
+**RU**
+
+`ping` — лишь вспомогательный сигнал. Многие домены режут ICMP, но отлично работают по HTTPS/TLS. Для FakeTLS ключевые проверки:
+
+1. DNS резолв
+2. TCP подключение к `:443`
+3. Стабильный TLS 1.3 handshake
+4. Качество таймингов (`curl` connect + appconnect)
 
 ---
 
 ## Quick start / Быстрый старт
 
-### 1) Download the installer / Скачай установщик
-
 ```bash
 wget https://raw.githubusercontent.com/yafoxins/MTProxy-Slayer/main/mtproto.sh -O mtproxy.sh
 chmod +x mtproxy.sh
-```
-
-### 2) Run it as root / Запусти от root
-
-```bash
 sudo bash mtproxy.sh
 ```
 
-### 3) Copy the generated proxy link / Скопируй готовую ссылку
+Installer asks interactively:
 
-After installation, the script prints:
-
-- `tg://proxy?server=...`
-- `https://t.me/proxy?server=...`
+1. Domain mode
+   - `1` manual SNI/domain
+   - `2` auto-select best domain from seed list
+2. Proxy port (**recommended: 443**)
+3. Stats port (default `8888`)
 
 ---
 
-## Configuration / Параметры
+## Installer flow / Как проходит установка
 
-The installer supports environment variables.  
-Установщик поддерживает переменные окружения.
+1. Beautiful interactive CLI with `info/warn/error/success`
+2. Domain mode selection (manual vs auto)
+3. Mandatory port selection and validation (`1..65535`, free port check)
+4. Optional stats port confirmation
+5. MTProxy rebuild from official source
+6. Download `proxy-secret` and `proxy-multi.conf`
+7. `systemd` units generation:
+   - `mtproxy.service`
+   - `mtproxy-refresh.service`
+   - `mtproxy-refresh.timer`
+8. Auto-refresh each 4 hours
+9. Final output with:
+   - `tg://proxy?...`
+   - `https://t.me/proxy?...`
+10. Info saved to `/opt/mtproxy/mtproxy-info.txt` and `.env`
 
-### Available parameters / Доступные параметры
+---
 
-| Variable | Default | Description |
+## Configuration and env overrides / Параметры и env override
+
+Supported env variables:
+
+| Variable | Default | Notes |
 |---|---:|---|
-| `PORT` | `443` | MTProxy listen port / Порт MTProxy |
-| `STATS_PORT` | `8888` | local stats port / локальный порт статистики |
-| `FAKE_TLS_DOMAIN` | `vk.com` | domain used for FakeTLS mask / домен для маскировки FakeTLS |
+| `PORT` | `443` | Used as prefilled default in interactive prompt |
+| `STATS_PORT` | `8888` | Default stats endpoint port |
+| `FAKE_TLS_DOMAIN` | none | Used as suggested value in manual mode |
 
-### Examples / Примеры
+### Behavior details / Поведение
 
-#### Change FakeTLS domain / Сменить домен FakeTLS
+- `PORT` from env does **not** skip prompt; it pre-fills the default.
+- Manual mode: `FAKE_TLS_DOMAIN` is used as default prompt value.
+- Auto mode: `FAKE_TLS_DOMAIN` is intentionally ignored (installer selects best runtime candidate from VPS tests).
+- Recommended proxy port is explicitly **443**.
 
-```bash
-FAKE_TLS_DOMAIN=vk.ru sudo bash mtproxy.sh
-```
-
-```bash
-FAKE_TLS_DOMAIN=petrovich.ru sudo bash mtproxy.sh
-```
-
-#### Change service port / Сменить порт сервиса
+### Examples
 
 ```bash
 PORT=8443 sudo bash mtproxy.sh
 ```
 
-#### Change stats port / Сменить порт статистики
-
 ```bash
 STATS_PORT=9000 sudo bash mtproxy.sh
 ```
 
-#### Combine parameters / Комбинировать параметры
+```bash
+FAKE_TLS_DOMAIN=vk.com sudo bash mtproxy.sh
+```
 
 ```bash
-FAKE_TLS_DOMAIN=yandex.ru PORT=443 STATS_PORT=8888 sudo bash mtproxy.sh
+PORT=443 STATS_PORT=8888 FAKE_TLS_DOMAIN=google.com sudo bash mtproxy.sh
 ```
 
 ---
 
-## FakeTLS domains / Домены FakeTLS
+## Domain auto-selection scoring / Логика auto-select scoring
 
-### Ready examples / Готовые примеры
+Seed candidates used by default:
 
-| Domain | HEX | Notes |
-|---|---|---|
-| `vk.com` | `766b2e636f6d` | default in this script |
-| `vk.ru` | `766b2e7275` | shorter RU domain |
-| `petrovich.ru` | `706574726f766963682e7275` | requested example |
-| `yandex.ru` | `79616e6465782e7275` | often practical for RU networks |
-| `google.com` | `676f6f676c652e636f6d` | widely known public domain |
+- `yandex.ru`
+- `vk.com`
+- `vk.ru`
+- `petrovich.ru`
+- `google.com`
+- `ozon.ru`
+- `avito.ru`
+- `mail.ru`
+- `wildberries.ru`
+- `gosuslugi.ru`
 
-### Choosing a domain / Как выбирать домен
+### Runtime validation pipeline
 
-Good candidate checklist:
+Each domain is tested **from the current VPS**, minimum 3 probes:
 
-- supports **TLS 1.3**
-- listens on **443**
-- is reachable from the target client network
-- is stable enough to be used repeatedly
+1. `check_dns` (must pass)
+2. `check_tcp_443` (must pass)
+3. `check_tls13` (must pass stably: at least 2/3 TLS checks)
+4. `measure_domain_timings` via `curl --tlsv1.3` (median connect/appconnect)
+5. `check_ping` as secondary signal
 
-Important note:
+Domains failing TCP or unstable TLS 1.3 are excluded.
 
-**EN:** There is no universal “best domain” for all networks. A domain that works great in one region or ISP can perform worse in another.  
-**RU:** Нет универсально лучшего домена для всех сетей. Домен, который отлично работает у одного провайдера или региона, может работать хуже у другого.
+### Score model
+
+Lower score is better:
+
+```text
+score = 0.45*tcp_ms + 0.45*tls_ms + 0.10*ping_ms
+```
+
+- TCP and TLS timings are primary criteria.
+- Ping has lower weight and never acts as a hard gate.
+- Installer prints full domain table with selected winner.
 
 ---
 
+## How to properly test a domain for FakeTLS / Как качественно проверить домен для FakeTLS
 
-## Domain check before use / Проверка домена перед использованием
+> Ping is helpful, but not authoritative.
 
-### Important / Важно
-
-**EN:**  
-A normal `ping` test is **not enough** for FakeTLS. Many websites ignore ICMP or rate-limit it, while FakeTLS actually depends on **TCP/443 reachability** and a working **TLS 1.3 handshake**.
-
-**RU:**  
-Обычного `ping` **недостаточно** для FakeTLS. Многие сайты не отвечают на ICMP или режут его по rate-limit, а для FakeTLS реально важны **доступность TCP/443** и успешный **TLS 1.3 handshake**.
-
-### Recommended check flow / Рекомендуемая проверка
-
-#### 1) DNS resolution / Проверка DNS
+### 1) DNS
 
 ```bash
 DOMAIN=vk.com
 getent ahostsv4 "$DOMAIN"
 ```
 
-#### 2) Optional ICMP ping / Необязательный ping
+### 2) TCP/443
 
 ```bash
-ping -c 4 "$DOMAIN"
+timeout 5 bash -c "</dev/tcp/$DOMAIN/443" && echo "TCP OK" || echo "TCP FAIL"
 ```
 
-Use this only as a rough latency hint. A failed ping does **not** automatically mean the domain is bad for FakeTLS.  
-Используй это только как грубую оценку задержки. Неудачный `ping` **не означает**, что домен плохой для FakeTLS.
-
-#### 3) Check TCP port 443 / Проверка TCP-порта 443
-
-```bash
-nc -vz "$DOMAIN" 443
-```
-
-If `nc` is not installed:
-
-```bash
-timeout 5 bash -c "cat < /dev/null > /dev/tcp/$DOMAIN/443" && echo OK || echo FAIL
-```
-
-#### 4) Verify TLS 1.3 handshake / Проверка TLS 1.3
+### 3) TLS 1.3 handshake
 
 ```bash
 openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" -tls1_3 < /dev/null
 ```
 
-A good result usually shows:
-- successful certificate chain output
-- negotiated TLS session
-- no immediate handshake failure
-
-Нормальный результат обычно показывает:
-- успешный вывод цепочки сертификатов
-- согласованную TLS-сессию
-- отсутствие мгновенного падения handshake
-
-#### 5) Measure real connect timings / Измерение реальных таймингов
+### 4) Timing metrics
 
 ```bash
-curl -o /dev/null -sS \
-  --connect-timeout 5 \
+curl -o /dev/null -sS --tlsv1.3 --connect-timeout 6 --max-time 6 \
   -w "dns=%{time_namelookup} tcp=%{time_connect} tls=%{time_appconnect} total=%{time_total}\n" \
   "https://$DOMAIN/"
 ```
 
-What matters most:
-- lower `tcp`
-- stable `tls`
-- no frequent timeout spikes
-
-Что важнее всего:
-- низкий `tcp`
-- стабильный `tls`
-- отсутствие частых timeout'ов
-
-### Quick all-in-one check / Быстрая комплексная проверка
+### 5) Ping (auxiliary only)
 
 ```bash
-DOMAIN=vk.com
-
-echo "== DNS =="
-getent ahostsv4 "$DOMAIN" || true
-echo
-
-echo "== ICMP ping =="
-ping -c 4 "$DOMAIN" || true
-echo
-
-echo "== TCP 443 =="
-nc -vz "$DOMAIN" 443 || true
-echo
-
-echo "== TLS 1.3 =="
-openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" -tls1_3 < /dev/null 2>/dev/null | sed -n '1,20p'
-echo
-
-echo "== Timings =="
-curl -o /dev/null -sS \
-  --connect-timeout 5 \
-  -w "dns=%{time_namelookup} tcp=%{time_connect} tls=%{time_appconnect} total=%{time_total}\n" \
-  "https://$DOMAIN/" || true
+ping -c 3 "$DOMAIN"
 ```
-
-### Best practice / Лучшая практика
-
-**EN:**  
-Test the domain from the **same network type** where the proxy will actually be used. A domain that looks fine from the server may behave differently from the client ISP or country.
-
-**RU:**  
-Проверяй домен из **того же типа сети**, где реально будет использоваться прокси. Домен, который хорошо выглядит с сервера, может вести себя иначе у клиентского провайдера или в другой стране.
-
-### Practical domain selection advice / Практический совет по выбору
-
-A domain is usually a good FakeTLS candidate if:
-
-- TCP/443 connects fast
-- TLS 1.3 works reliably
-- `curl` timings are stable across multiple checks
-- the domain is consistently reachable from the client network
-
-Домен обычно подходит для FakeTLS, если:
-
-- TCP/443 подключается быстро
-- TLS 1.3 стабильно работает
-- тайминги `curl` ровные в нескольких проверках
-- домен стабильно доступен из клиентской сети
-
-### Tiny helper script / Маленький helper-скрипт
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-DOMAIN="${1:?Usage: $0 domain}"
-
-echo "Checking: $DOMAIN"
-echo
-
-echo "[1] DNS"
-getent ahostsv4 "$DOMAIN" || true
-echo
-
-echo "[2] Ping"
-ping -c 4 "$DOMAIN" || true
-echo
-
-echo "[3] TCP 443"
-nc -vz "$DOMAIN" 443 || true
-echo
-
-echo "[4] TLS 1.3"
-openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" -tls1_3 < /dev/null 2>/dev/null | sed -n '1,20p'
-echo
-
-echo "[5] Timings"
-curl -o /dev/null -sS \
-  --connect-timeout 5 \
-  -w "dns=%{time_namelookup} tcp=%{time_connect} tls=%{time_appconnect} total=%{time_total}\n" \
-  "https://$DOMAIN/" || true
-```
-
-## Auto-refresh / Автообновление
-
-### What gets refreshed? / Что обновляется?
-
-Every 4 hours, the timer runs a one-shot service that:
-
-```bash
-cd /opt/mtproxy && \
-wget -4 -q https://core.telegram.org/getProxySecret -O proxy-secret && \
-wget -4 -q https://core.telegram.org/getProxyConfig -O proxy-multi.conf && \
-systemctl restart mtproxy
-```
-
-### Why is this useful? / Зачем это нужно?
-
-**EN:**  
-Telegram proxy metadata can change over time. Refreshing `proxy-secret` and `proxy-multi.conf` helps keep the server aligned with current Telegram proxy settings. The automatic restart applies fresh data without manual intervention.
-
-**RU:**  
-Метаданные Telegram-прокси со временем могут меняться. Обновление `proxy-secret` и `proxy-multi.conf` помогает держать сервер в актуальном состоянии относительно текущих настроек Telegram-прокси. Автоматический перезапуск применяет свежие данные без ручных действий.
-
-### Timer behavior / Как работает timer
-
-- starts **10 minutes after boot**
-- repeats every **4 hours**
-- survives reboots thanks to `Persistent=true`
 
 ---
 
-## Service layout / Что создаёт скрипт
+## Files and services / Файлы и сервисы
 
-The installer creates:
+### Files
 
 ```text
 /opt/mtproxy/
 ├── mtproto-proxy
 ├── proxy-secret
 ├── proxy-multi.conf
-└── user-secret
-
-/etc/systemd/system/
-├── mtproxy.service
-├── mtproxy-refresh.service
-└── mtproxy-refresh.timer
-
-/etc/sysctl.d/
-└── 99-mtproxy-pid.conf
+├── user-secret
+├── mtproxy-info.txt
+└── mtproxy-info.env
 ```
 
-### What each part does / Что делает каждая часть
+### systemd units
 
-- `mtproxy.service` → runs the actual MTProxy server  
-- `mtproxy-refresh.service` → refreshes Telegram config files and restarts the service  
-- `mtproxy-refresh.timer` → schedules refresh every 4 hours  
-- `99-mtproxy-pid.conf` → forces a safe `kernel.pid_max` value for MTProxy compatibility  
+```text
+/etc/systemd/system/mtproxy.service
+/etc/systemd/system/mtproxy-refresh.service
+/etc/systemd/system/mtproxy-refresh.timer
+```
+
+### Sysctl fix
+
+```text
+/etc/sysctl.d/99-mtproxy-pid.conf
+```
 
 ---
 
-## Verification / Проверка
+## Operations / Эксплуатация
 
-### Service status / Статус сервиса
+### Check MTProxy status
 
 ```bash
 systemctl status mtproxy
-```
-
-### Recent logs / Последние логи
-
-```bash
 journalctl -u mtproxy -n 100 --no-pager
 ```
 
-### Timer status / Статус таймера
+### Check refresh timer
 
 ```bash
 systemctl status mtproxy-refresh.timer
 systemctl list-timers --all | grep mtproxy-refresh
 ```
 
-### Local stats / Локальная статистика
+### Check local stats endpoint
 
 ```bash
 curl http://127.0.0.1:8888/stats
 ```
 
-### Current pid_max / Текущее значение pid_max
+If custom stats port was selected, replace `8888`.
+
+### Check saved installation info
+
+```bash
+cat /opt/mtproxy/mtproxy-info.txt
+cat /opt/mtproxy/mtproxy-info.env
+```
+
+---
+
+## Troubleshooting
+
+### Port already in use
+
+```bash
+ss -tuln | grep ':443'
+```
+
+Pick another port in installer prompt.
+
+### Service not starting
+
+```bash
+journalctl -u mtproxy -n 100 --no-pager
+```
+
+### Validate timer execution
+
+```bash
+systemctl status mtproxy-refresh.service
+systemctl status mtproxy-refresh.timer
+```
+
+### Validate kernel pid_max
 
 ```bash
 cat /proc/sys/kernel/pid_max
 ```
 
----
+Expected value:
 
-## Troubleshooting / Частые проблемы
-
-### MTProxy exits with PID assertion / Падает с ошибкой PID
-
-**Symptom / Симптом:**  
-MTProxy crashes with an assertion related to `common/pid.c`.
-
-**Cause / Причина:**  
-Some VPS templates use a `kernel.pid_max` value that is too large for MTProxy.
-
-**Fix / Решение:**  
-This project already applies:
-
-```bash
-kernel.pid_max = 32768
+```text
+32768
 ```
-
-If needed, reapply manually:
-
-```bash
-cat >/etc/sysctl.d/99-mtproxy-pid.conf <<'EOF'
-kernel.pid_max = 32768
-EOF
-sysctl --system
-systemctl restart mtproxy
-```
-
-### Port already in use / Порт уже занят
-
-```bash
-ss -tulpn | grep :443
-```
-
-Change the port if needed:
-
-```bash
-PORT=8443 sudo bash mtproxy.sh
-```
-
-### FakeTLS domain behaves poorly / Домен работает плохо
-
-Try another public TLS 1.3 domain:
-
-```bash
-FAKE_TLS_DOMAIN=vk.ru sudo bash mtproxy.sh
-```
-
-```bash
-FAKE_TLS_DOMAIN=yandex.ru sudo bash mtproxy.sh
-```
-
-### Want to rebuild cleanly / Хочешь переставить с нуля
-
-Just rerun the script as root; it stops previous units, recreates files, and deploys the new configuration.
-
----
-
-## Roadmap
-
-- [ ] optional domain auto-probing before install
-- [ ] Docker deployment variant
-- [ ] IPv6 checks
-- [ ] optional firewall presets
-- [ ] domain testing helper script
 
 ---
 
@@ -568,11 +378,3 @@ Just rerun the script as root; it stops previous units, recreates files, and dep
   <b>Yafoxin Dev</b><br/>
   Telegram: <a href="https://t.me/yafoxindev">t.me/yafoxindev</a>
 </p>
-
----
-
-## Star the project
-
-If this repository saved your time, give it a ⭐ on GitHub.
-
-Если этот репозиторий сэкономил тебе время — поставь ⭐ на GitHub.
