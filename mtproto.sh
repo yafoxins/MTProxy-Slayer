@@ -133,12 +133,24 @@ check_tcp_443() {
 
 check_tls13() {
   local domain="$1"
-  timeout "${CURL_TIMEOUT}" openssl s_client \
+  local tls_output=""
+
+  tls_output="$(timeout "${CURL_TIMEOUT}" openssl s_client \
     -connect "${domain}:443" \
     -servername "${domain}" \
-    -tls1_3 < /dev/null >/tmp/mtproxy_tls_check.out 2>/tmp/mtproxy_tls_check.err || return 1
+    -tls1_3 \
+    -brief < /dev/null 2>&1 || true)"
 
-  grep -q "Protocol  : TLSv1.3" /tmp/mtproxy_tls_check.out
+  if grep -qiE 'Protocol[[:space:]]*:[[:space:]]*TLSv1\.3|TLSv1\.3' <<<"${tls_output}"; then
+    return 0
+  fi
+
+  # Fallback for OpenSSL variants that do not expose protocol line reliably in brief mode.
+  curl -4 -sS -o /dev/null \
+    --connect-timeout "${CURL_TIMEOUT}" \
+    --max-time "${CURL_TIMEOUT}" \
+    --tlsv1.3 \
+    "https://${domain}/" >/dev/null 2>&1
 }
 
 median_from_list() {
