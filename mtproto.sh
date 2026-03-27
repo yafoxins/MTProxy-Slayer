@@ -35,6 +35,8 @@ MODE=""
 SECRET=""
 CLIENT_SECRET=""
 DOMAIN_SELECTION_TABLE=""
+DOMAIN_RECOMMENDED_DOMAIN=""
+DOMAIN_RECOMMENDED_SCORE=""
 HOST_IP=""
 CURRENT_PID_MAX=""
 
@@ -133,23 +135,27 @@ check_tcp_443() {
 
 check_tls13() {
   local domain="$1"
-  local tls_output=""
+  local attempt
+  for attempt in 1 2 3; do
+    local tls_output
+    tls_output="$(timeout "${CURL_TIMEOUT}" openssl s_client \
+      -connect "${domain}:443" \
+      -servername "${domain}" \
+      -tls1_3 \
+      -brief < /dev/null 2>&1 || true)"
 
-  tls_output="$(timeout "${CURL_TIMEOUT}" openssl s_client \
-    -connect "${domain}:443" \
-    -servername "${domain}" \
-    -tls1_3 \
-    -brief < /dev/null 2>&1 || true)"
+    if grep -qiE 'Protocol[[:space:]]*:[[:space:]]*TLSv1\.3|TLSv1\.3|CONNECTION ESTABLISHED' <<<"${tls_output}" &&
+      ! grep -qiE 'handshake failure|alert|no protocols available|wrong version number|Connection refused' <<<"${tls_output}"; then
+      return 0
+    fi
+  done
 
-  if grep -qiE 'Protocol[[:space:]]*:[[:space:]]*TLSv1\.3|TLSv1\.3' <<<"${tls_output}"; then
-    return 0
-  fi
-
-  # Fallback for OpenSSL variants that do not expose protocol line reliably in brief mode.
+  # Explicit TLS 1.3 check via curl to avoid false negatives with some OpenSSL builds.
   curl -4 -sS -o /dev/null \
     --connect-timeout "${CURL_TIMEOUT}" \
     --max-time "${CURL_TIMEOUT}" \
     --tlsv1.3 \
+    --tls-max 1.3 \
     "https://${domain}/" >/dev/null 2>&1
 }
 
@@ -335,7 +341,7 @@ prompt_manual_domain() {
     fi
 
     if ! check_tls13 "${user_domain}"; then
-      log_warn "TLS 1.3 handshake failed for ${user_domain}."
+      log_warn "Explicit TLS 1.3 check failed for ${user_domain} (OpenSSL + curl)."
       continue
     fi
 
@@ -348,11 +354,10 @@ prompt_manual_domain() {
 select_best_domain() {
   log_step "Auto-selecting best FakeTLS domain"
 
-  local best_domain=""
-  local best_score=""
-  local any_success=0
-
-  DOMAIN_SELECTION_TABLE=$(printf "domain|dns|tcp443|tls13|ping_avg_ms|tcp_med_s|tls_med_s|score\n")
+  local -a scored_domains=()
+  DOMAIN_SELECTION_TABLE=$(printf "rank|domain|score|ping_avg_ms|tcp_med_s|tls_med_s\n")
+  DOMAIN_RECOMMENDED_DOMAIN=""
+  DOMAIN_RECOMMENDED_SCORE=""
 
   local domain
   for domain in "${DEFAULT_DOMAIN_CANDIDATES[@]}"; do
@@ -396,30 +401,73 @@ select_best_domain() {
 
       if (( successes >= 2 )); then
         score="$(score_domain "${tcp_median}" "${tls_median}" "${ping_avg}")"
-        any_success=1
-
-        if [[ -z "${best_score}" ]] || awk -v a="${score}" -v b="${best_score}" 'BEGIN { exit !(a < b) }'; then
-          best_score="${score}"
-          best_domain="${domain}"
-        fi
+        scored_domains+=("${score}|${domain}|$(format_float "${ping_avg}")|$(format_float "${tcp_median}")|$(format_float "${tls_median}")")
       else
         tls_status="fail"
         score="N/A"
       fi
     fi
-
-    DOMAIN_SELECTION_TABLE+="${domain}|${dns_status}|${tcp_status}|${tls_status}|$(format_float "${ping_avg}")|$(format_float "${tcp_median}")|$(format_float "${tls_median}")|${score}"$'\n'
   done
 
-  if (( any_success == 0 )) || [[ -z "${best_domain}" ]]; then
+  if (( ${#scored_domains[@]} == 0 )); then
     log_warn "No domain passed auto-selection criteria. Falling back to manual mode."
     MODE="manual"
     prompt_manual_domain
     return
   fi
 
-  FAKE_TLS_DOMAIN="${best_domain}"
-  log_success "Best domain selected: ${FAKE_TLS_DOMAIN} (score ${best_score})"
+  local sorted_scored
+  sorted_scored="$(printf '%s\n' "${scored_domains[@]}" | sort -t'|' -k1,1n)"
+
+  local rank=1
+  while IFS='|' read -r score domain ping tcp_med tls_med; do
+    [[ -z "${domain}" ]] && continue
+    DOMAIN_SELECTION_TABLE+="${rank}|${domain}|${score}|${ping}|${tcp_med}|${tls_med}"$'\n'
+    rank=$((rank + 1))
+  done <<<"${sorted_scored}"
+
+  DOMAIN_RECOMMENDED_DOMAIN="$(awk -F'|' 'NR==2 {print $2}' <<<"${DOMAIN_SELECTION_TABLE}")"
+  DOMAIN_RECOMMENDED_SCORE="$(awk -F'|' 'NR==2 {print $3}' <<<"${DOMAIN_SELECTION_TABLE}")"
+  FAKE_TLS_DOMAIN="${DOMAIN_RECOMMENDED_DOMAIN}"
+
+  log_success "Recommended domain by score: ${DOMAIN_RECOMMENDED_DOMAIN} (score ${DOMAIN_RECOMMENDED_SCORE})"
+}
+
+prompt_domain_from_results() {
+  if [[ -z "${DOMAIN_SELECTION_TABLE}" || -z "${DOMAIN_RECOMMENDED_DOMAIN}" ]]; then
+    return
+  fi
+
+  local recommended_rank
+  recommended_rank="$(awk -F'|' -v d="${DOMAIN_RECOMMENDED_DOMAIN}" '$2==d {print $1; exit}' <<<"${DOMAIN_SELECTION_TABLE}")"
+  recommended_rank="${recommended_rank:-1}"
+
+  while true; do
+    read -r -p "Choose domain by rank [default: ${recommended_rank}, recommended ${DOMAIN_RECOMMENDED_DOMAIN}]: " input_rank
+    input_rank="${input_rank:-${recommended_rank}}"
+
+    if ! [[ "${input_rank}" =~ ^[0-9]+$ ]]; then
+      log_warn "Enter a numeric rank from the table."
+      continue
+    fi
+
+    local selected_domain selected_score
+    selected_domain="$(awk -F'|' -v r="${input_rank}" '$1==r {print $2}' <<<"${DOMAIN_SELECTION_TABLE}")"
+    selected_score="$(awk -F'|' -v r="${input_rank}" '$1==r {print $3}' <<<"${DOMAIN_SELECTION_TABLE}")"
+
+    if [[ -z "${selected_domain}" ]]; then
+      log_warn "Rank ${input_rank} is not in the list of working domains."
+      continue
+    fi
+
+    FAKE_TLS_DOMAIN="${selected_domain}"
+    if [[ "${selected_domain}" == "${DOMAIN_RECOMMENDED_DOMAIN}" ]]; then
+      log_success "Selected recommended domain: ${FAKE_TLS_DOMAIN} (score ${selected_score})"
+    else
+      log_info "Selected domain: ${FAKE_TLS_DOMAIN} (score ${selected_score}); recommended: ${DOMAIN_RECOMMENDED_DOMAIN} (score ${DOMAIN_RECOMMENDED_SCORE})."
+    fi
+    break
+  done
 }
 
 print_domain_results() {
@@ -428,17 +476,17 @@ print_domain_results() {
   fi
 
   echo
-  printf "%-16s %-4s %-6s %-6s %-11s %-10s %-10s %-8s %-9s\n" \
-    "DOMAIN" "DNS" "TCP" "TLS13" "PING(ms)" "TCP(s)" "TLS(s)" "SCORE" "SELECTED"
+  printf "%-5s %-18s %-8s %-11s %-10s %-10s %-12s\n" \
+    "RANK" "DOMAIN" "SCORE" "PING(ms)" "TCP(s)" "TLS(s)" "RECOMMENDED"
 
-  while IFS='|' read -r domain dns tcp tls ping tcp_med tls_med score; do
-    [[ "${domain}" == "domain" || -z "${domain}" ]] && continue
+  while IFS='|' read -r rank domain score ping tcp_med tls_med; do
+    [[ "${rank}" == "rank" || -z "${domain}" ]] && continue
     local selected="no"
-    if [[ "${domain}" == "${FAKE_TLS_DOMAIN}" ]]; then
+    if [[ "${domain}" == "${DOMAIN_RECOMMENDED_DOMAIN}" ]]; then
       selected="yes"
     fi
-    printf "%-16s %-4s %-6s %-6s %-11s %-10s %-10s %-8s %-9s\n" \
-      "${domain}" "${dns}" "${tcp}" "${tls}" "${ping}" "${tcp_med}" "${tls_med}" "${score}" "${selected}"
+    printf "%-5s %-18s %-8s %-11s %-10s %-10s %-12s\n" \
+      "${rank}" "${domain}" "${score}" "${ping}" "${tcp_med}" "${tls_med}" "${selected}"
   done <<<"${DOMAIN_SELECTION_TABLE}"
   echo
 }
@@ -629,10 +677,11 @@ EOF_INFO_TXT
   if [[ "${MODE}" == "auto" ]]; then
     {
       echo
-      echo "Auto-selection results"
-      echo "----------------------"
+      echo "Auto-selection results (working domains only)"
+      echo "--------------------------------------------"
       echo "${DOMAIN_SELECTION_TABLE}" | sed 's/|/\t/g'
-      echo "Selected best domain: ${FAKE_TLS_DOMAIN}"
+      echo "Recommended by score: ${DOMAIN_RECOMMENDED_DOMAIN} (${DOMAIN_RECOMMENDED_SCORE})"
+      echo "User selected domain: ${FAKE_TLS_DOMAIN}"
     } >> "${INFO_TXT}"
   fi
 
@@ -700,6 +749,7 @@ main() {
     fi
     select_best_domain
     print_domain_results
+    prompt_domain_from_results
   fi
 
   stop_old_services
